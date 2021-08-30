@@ -196,19 +196,29 @@ ssthresh (slow start threshold)：慢开始阈值，cwnd 达到阈值后，开�
 
 ## TCP 释放连接
 
+![](./img/tcp_disconnect.png)
 
+- FIN-WAIT-1：表示想主动关闭连接，向对方发送了 FIN 报文，此时进入到 FIN-WAIT-1 状态
+- CLOSE-WAIT：表示在等待关闭，当对方发送FIN给自己，自己会回应一个ACK报文给对方，此时则进入到 CLOSE-WAIT 状态，在此状态下，需要考虑自己是否还有数据要发送给对方，如果没有，发送 FIN 报文给对方
+- FIN-WAIT-2：只要对方发送 ACK 确认后，主动方就会处于 FIN-WAIT-2 状态，然后等待对方发送 FIN 报文
+- CLOSING：一种比较罕见的例外状态，表示你发送 FIN 报文后，并没有收到对方的 ACK 报文，反而却也收到了对方的 FIN 报文
+  如果双方几乎在同时准备关闭连接的话，那么就出现了双方同时发送FIN报文的情况，也即会出现 CLOSING 状态，表示双方都正在关闭连接
+- LAST-ACK：被动关闭一方在发送 FIN 报文后，最后等待对方的 ACK 报文，当收到 ACK 报文后，即可进入 CLOSED 状态了
+- TIME-WAIT：表示收到了对方的 FIN 报文，并发送出了 ACK 报文，就等 2MSL 后即可进入CLOSED 状态了
+- CLOSED：关闭状态
 
+如果 FIN-WAIT-1 状态下，收到了对方同时带 FIN 标志和 ACK 标志的报文时，可以直接进入到 TIME-WAIT 状态，而无须经过 FIN-WAIT-2 状态。
 
+## 实现细节
 
+TCP/IP 协议栈在设计上，允许任何一方先发起断开请求。
 
+client 发送ACK后，需要有个 TIME-WAIT 阶段，等待一段时间后，再真正关闭连接，一般是等待 2 倍的 MSL（Maximum Segment Lifetime，最大分段生存期）
+，MSL是TCP报文在 Internet 上的最长生存时间，每个具体的 TCP 实现都必须选择一个确定的 MSL 值，RFC 1122 建议是2分钟，可以防止本次连接中产生的数据包误传到下一次连接中。
 
+如果 client 发送 ACK 后马上释放了，然后又因为网络原因，server 没有收到 client 的 ACK，server 就会重发 FIN，这时可能出现的情况是：
 
-
-
-
-
-
-
-
-
+- client 没有任何响应，服务器那边会干等，甚至多次重发FIN，浪费资源
+- client 有个新的应用程序刚好分配了同一个端口号，新的应用程序收到 FIN 后马上开始执行断开连接的操作，本来它可能是想跟 server 建立连接的
+  
 
