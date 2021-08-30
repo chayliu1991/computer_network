@@ -28,3 +28,22 @@
   - 第2位（Don’t Fragment）：1代表不允许分片，0代表允许分片
   - 第3位（More Fragments）：1代表不是最后一片，0代表是最后一片
 
+- 片偏移（Fragment Offset），占13位
+  - 片偏移乘以8：字节偏移（wireshark显示的是字节偏移）
+  - 每一片的长度一定是8的整数倍
+
+![](./img/offset.png)
+
+- 生存时间（Time To Live，TTL），占8位
+  - 每个路由器在转发之前会将TTL减1，一旦发现TTL减为0，路由器会返回错误报告
+  - 观察使用 `ping` 命令后的TTL，能够推测出对方的操作系统、中间经过了多少个路由器
+
+![](./img/ttl.png)
+
+- 协议（Protocol），占8位
+  - 表明所封装的数据是使用了什么协议
+
+![](./img/protocol.png)
+
+- 首部校验和（Header Checksum）
+  - 用于检查首部是否有错误
