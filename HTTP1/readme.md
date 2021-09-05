@@ -1011,9 +1011,323 @@ CSRF 的一种防攻击方式：
 
 ![](./img/csrf_def.png)
 
+# CORS：Cross-Origin Resource Sharing  
 
+- 浏览器同源策略下的跨域访问解决方案：
 
+  - 如果站点 A 允许站点 B 的脚本访问其资源，必须在 HTTP 响应中显式的告知浏览器：站点 B 是被允许的
 
+    - 访问站点 A 的请求，浏览器应告知该请求来自站点 B
+
+    - 站点 A 的响应中，应明确哪些跨域请求是被允许的
+
+      
+
+- 策略 1：何为简单请求？
+
+  - GET/HEAD/POST 方法之一
+  - 仅能使用 CORS 安全的头部：Accept、Accept-Language、Content-Language、Content-Type
+  - Content-Type 值只能是： text/plain、multipart/form-data、application/x-www-form-urlencoded
+    三者其中之一
+
+- 策略 2：简单请求以外的其他请求
+
+  - 访问资源前，需要先发起 prefilght 预检请求（方法为 OPTIONS）询问何种请求是被允许的
+
+## 简单请求的跨域访问  
+
+- 请求中携带 Origin 头部告知来自哪个域
+- 响应中携带 Access-Control-Allow-Origin 头部表示允许哪些域
+- 浏览器放行
+
+![](./img/control_allow_origin.png)
+
+## 预检请求  
+
+预检请求头部
+
+- Access-Control-Request-Method
+- Access-Control-Request-Headers
+
+预检请求响应
+
+- Access-Control-Allow-Methods
+- Access-Control-Allow-Headers
+- Access-Control-Max-Age
+
+![](./img/access_control.png)
+
+## 跨域访问资源：请求头部  
+
+请求头部
+- Origin（RFC6454）：一个页面的资源可能来自于多个域名，在 AJAX 等子请求中标明来源于某个域名下的脚本，以通过服务器的安全校验
+  - origin = "Origin:" OWS origin-list-or-null OWS
+  - origin-list-or-null = %x6E %x75 %x6C %x6C / origin-list
+  - origin-list = serialized-origin *( SP serialized-origin )
+  - serialized-origin = scheme "://" host [ ":" port ]
+- Access-Control-Request-Method
+  - 在 preflight 预检请求 (OPTIONS) 中，告知服务器接下来的请求会使用哪些方法
+- Access-Control-Request-Headers
+  - 在 preflight 预检请求 (OPTIONS) 中，告知服务器接下来的请求会传递哪些头部
+
+## 跨域访问资源：响应头部  
+
+响应头部：
+- Access-Control-Allow-Methods
+  - 在 preflight 预检请求的响应中，告知客户端后续请求允许使用的方法
+- Access-Control-Allow-Headers
+  - 在 preflight 预检请求的响应中，告知客户端后续请求允许携带的头部
+- Access-Control-Max-Age
+  - 在 preflight 预检请求的响应中，告知客户端该响应的信息可以缓存多久
+- Access-Control-Expose-Headers
+  - 告知浏览器哪些响应头部可以供客户端使用，默认情况下只有 Cache-Control、Content-Language、
+  Content-Type、Expires、Last-Modified、Pragma 可供使用
+- Access-Control-Allow-Origin
+  - 告知浏览器允许哪些域访问当前资源，*表示允许所有域。为避免缓存错乱，响应中需要携带 Vary: Origin
+- Access-Control-Allow-Credentials
+  - 告知浏览器是否可以将 Credentials 暴露给客户端使用，Credentials 包含 cookie、authorization 类头部、
+  TLS证书等。  
+
+# 条件请求
+
+## 资源 URI 与资源表述 Representation  
+
+资源 R 可被定义为随时间变化的函数 MR(t)
+- 静态资源：创建后任何时刻值都不变，例如指定版本号的库文件
+- 动态资源：其值随时间而频繁地变化，例如某新闻站点首页
+
+优点：
+- 提供了无需人为设定类型或者实现方式的情况下，同一资源多种不同来源的信息
+- 基于请求特性进行内容协商，使资源的渲染延迟绑定
+- 允许表述概念而不是具体的 Representation，故资源变化时不用修改所有链接
+
+## Preconditon 条件请求  
+
+目的
+- 由客户端携带条件判断信息，而服务器预执行条件验证过程成功后，再返
+  回资源的表述
+
+常见应用场景
+
+- 使缓存的更新更有效率（如 304 响应码使服务器不用传递包体）
+
+- 断点续传时对之前内容的验证
+
+- 当多个客户端并行修改同一资源时，防止某一客户端的更新被错误丢弃
+
+## 强验证器与弱验证器的概念
+- 验证器 validator：根据客户端请求中携带的相关头部，以及服务器资源的信息，执行两端的资源验证
+  - 强验证器：服务器上的资源表述只要有变动（例如版本更新或者元数据更新），那么以旧的验证头部访问一定会导致验证不过
+  - 弱验证器：服务器上资源变动时，允许一定程度上仍然可以验证通过（例如一小段时间内仍然允许缓存有效）
+
+## 验证器响应头部  
+
+### Etag 响应头部
+
+- 定义：
+- ETag = entity-tag
+- entity-tag = [ weak ] opaque-tag
+- weak = %x57.2F
+- opaque-tag = DQUOTE *etagc DQUOTE
+- etagc = %x21 / %x23-7E / obs-text
+- 给出当前资源表述的标签
+- 例如：
+  - 强验证器 ETag: "xyzzy"
+  - 弱验证器 ETag: W/"xyzzy"
+
+### Last-Modified 响应头部
+- 定义：Last-Modified = HTTP-date
+- 表示对应资源表述的上次修改时间
+- 对比 Date 头部： Date = HTTP-date
+  - 表示响应包体生成的时间
+  -  Last-Modified 不能晚于 Date 的值  
+
+### 条件请求头部
+
+- If-Match = "*" / 1#entity-tag
+- If-None-Match = "*" / 1#entity-tag
+- If-Modified-Since = HTTP-date
+- If-Unmodified-Since = HTTP-date
+- If-Range = entity-tag / HTTP-date
+
+## 缓存更新  
+
+首次缓存：
+
+![](./img/first_cache.png)
+
+基于过期缓存发起条件请求：
+
+![](./img/outdate_cache.png)
+
+## 增量更新  
+
+当服务器支持 Range服务时，连接意外中断时已接收到部分数据：
+
+![](./img/added_update.png)
+
+通过 Range 请求下载其他包体时，加入验证器防止两次下载间资源已发生了变更:
+
+![](./img/added_update2.png)
+
+如果两次下载操作中，资源已经变了，则服务器用 412 通知客户端，而客户端重新下载完整包体：
+
+![](./img/added_update3.png)
+
+通过 If-Range 头部可以避免 2 次请求交互带来的损耗：
+
+![](./img/added_update4.png)
+
+## 更新丢失问题  
+
+更新资源意味着 2 步操作：先获取资源，再把本地修改后的资源提交：
+
+![](./img/update_miss.png)
+
+2 个客户端并发修改同一资源会导致更新丢失：
+
+![](./img/update_miss2.png)
+
+乐观锁只允许第 1 个提交更新的客户端更新资源：
+
+![](./img/update_miss3.png)
+
+乐观锁解决首次上传：
+
+![](./img/update_miss4.png)
+
+## 服务器处理条件请求的常见规则   
+
+![](./img/nginx_control.png)
+
+# HTTP 缓存  
+
+目标：减少时延；降低带宽消耗  
+
+可选而又必要：
+
+![](./img/http_cache.png)
+
+如果缓存没有过期：
+
+![](./img/http_cache2.png)
+
+如果缓存过期，则继续从服务器验证：
+
+![](./img/http_cache3.png)
+
+## 私有缓存与共享缓存
+- 私有缓存：仅供一个用户使用的缓存，通常只存在于如浏览器这样的客
+户端上
+- 共享缓存：可以供多个用户的缓存，存在于网络中负责转发消息的代理
+  服务器（对热点资源常使用共享缓存，以减轻源服务器的压力，并提升
+  网络效率）
+  - Authentication 响应不可被代理服务器缓存
+  - 正向代理
+  - 反向代理
+
+## 过期的共享缓存--代理服务器
+
+![](./img/http_cache_proxy.png)
+
+## 缓存实现示意图  
+
+![](./img/http_cache_impl.png)
+
+## 判断缓存是否过期  
+
+response_is_fresh = (freshness_lifetime > current_age)
+- freshness_lifetime：按优先级，取以下响应头部的值
+  - s-maxage > max-age > Expires > 预估过期时间
+  - 例如：
+    - Cache-Control: s-maxage=3600
+    - Cache-Control: max-age=86400
+    - Expires: Fri, 03 May 2019 03:15:20 GMT
+      - Expires = HTTP-date，指明缓存的绝对过期时间
+
+常见的预估时间：RFC7234 推荐：（DownloadTime– LastModified)*10%  
+
+## Age 头部及 current_age 的计算  
+
+- Age 表示自源服务器发出响应（或者验证过期缓存），到使用缓存的响应发出时经过的秒数
+  - 对于代理服务器管理的共享缓存，客户端可以根据 Age 头部判断缓存时间
+  - Age = delta-seconds
+
+- current_age 计算：current_age = corrected_initial_age + resident_time;
+  - resident_time = now - response_time(接收到响应的时间);
+  - corrected_initial_age = max(apparent_age, corrected_age_value);
+    - corrected_age_value = age_value + response_delay;
+  - response_delay = response_time - request_time(发起请求的时间);
+  - apparent_age = max(0, response_time - date_value);
+
+  ### 代理服务器缓存中的 Age 头部  
+
+  ![](./img/proxy_server_age.png)
+
+## Cache-Control 头部  
+
+Cache-Control = 1#cache-directive
+- cache-directive = token [ "=" ( token / quoted-string ) ]
+  - delta-seconds = 1*DIGIT
+  - RFC 规范中的要求是，至少能支持到 2147483648 (2^31)
+- 请求中的头部：max-age、max-stale、min-fresh、no-cache、nostore、no-transform、only-if-cached
+- 响应中的头部： max-age、s-maxage 、 must-revalidate 、proxyrevalidate 、no-cache、no-store、no-transform、public、private
+
+### Cache-Control 头部在请求中的值
+
+- max-age：告诉服务器，客户端不会接受 Age 超出 max-age 秒的缓存
+- max-stale：告诉服务器，即使缓存不再新鲜，但陈旧秒数没有超出 max-stale 时，客户端仍打算使用。若 max-stale 后没有值，则表示无论过期多久客户端都可使用
+- min-fresh：告诉服务器，Age 至少经过 min-fresh 秒后缓存才可使用
+- no-cache：告诉服务器，不能直接使用已有缓存作为响应返回，除非带着缓存条件到上游服务端得到 304 验证返回码才可使用现有缓存
+- no-store：告诉各代理服务器不要对该请求的响应缓存（实际有不少不遵守该规定的代理服务器）
+- no-transform：告诉代理服务器不要修改消息包体的内容
+- only-if-cached：告诉服务器仅能返回缓存的响应，否则若没有缓存则返回 504 错误码
+
+### Cache-Control 头部在响应中的值
+
+- must-revalidate：告诉客户端一旦缓存过期，必须向服务器验证后才可使用
+- proxy-revalidate：与 must-revalidate 类似，但它仅对代理服务器的共享缓存有效
+- no-cache：告诉客户端不能直接使用缓存的响应，使用前必须在源服务器验证得到 304 返回码。如果 no-cache 后指定头部，则若客户端的后续请求及响应中不含有这些头则可直接使用缓存
+- max-age：告诉客户端缓存 Age 超出 max-age 秒后则缓存过期
+- s-maxage：与 max-age 相似，但仅针对共享缓存，且优先级高于 max-age 和Expires
+- public：表示无论私有缓存或者共享缓存，皆可将该响应缓存
+- private：表示该响应不能被代理服务器作为共享缓存使用。若 private 后指定头部，则在告诉代理服务器不能缓存指定的头部，但可缓存其他部分
+- no-store：告诉所有下游节点不能对响应进行缓存
+- no-transform：告诉代理服务器不能修改消息包体的内容
+
+### 什么样的 HTTP 响应会缓存？RFC7234
+
+- 请求方法可以被缓存理解（不只于 GET 方法）
+- 响应码可以被缓存理解（404、206 也可以被缓存）
+- 响应与请求的头部没有指明 no-store
+- 响应中至少应含有以下头部中的 1 个或者多个：
+- Expires、max-age、s-maxage、public
+- 当响应中没有明确指示过期时间的头部时，如果响应码非常明确，也可以缓存
+- 如果缓存在代理服务器上
+- 不含有 private
+- 不含有 Authorization  
+
+### 其他响应头部
+- Pragma = 1#pragma-directive
+- pragma-directive = "no-cache" / extension-pragma
+- extension-pragma = token [ "=" ( token / quoted-string ) ]
+- Pragma: no-cache与Cache-Control: no-cache 意义相同  
+
+## 使用缓存作为当前请求响应的条件  
+
+- URI 是匹配的
+  - URI 作为主要的缓存关键字，当一个 URI 同时对应多份缓存时，选择日期最
+    近的缓存
+- 缓存中的响应允许当前请求的方法使用缓存
+- 缓存中的响应 Vary 头部指定的头部必须与请求中的头部相匹配：
+  - Vary = “*” / 1#field-name
+  - Vary: *意味着一定匹配失败
+
+- 当前请求以及缓存中的响应都不包含 no-cache 头部（Pragma: no-cache 或者Cache-Control: no-cache）
+- 缓存中的响应必须是以下三者之一：
+  - 新鲜的（时间上未过期）
+  - 缓存中的响应头部明确告知可以使用过期的响应（如 Cache-Control: max-stale=60）
+  - 使用条件请求去服务器端验证请求是否过期，得到 304 响应
 
 
 
