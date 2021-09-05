@@ -955,7 +955,61 @@ HTTP 请求的状态
 
 只有 page.html 是用户发出的，其他请求是浏览器自动发出的  ：
 
+![](./img/http_req.png)
 
+站点 domain-b.com 收到的来自同一浏览器的请求，可能来自于站点domain-a.com：
+
+![](./img/http_req2.png)
+
+## 没有同源策略下的 Cookie  
+
+只能保证用户请求来自于同一浏览器，不能确保是用户自愿发出的：
+
+![](./img/http_req3.png)
+
+- 访问站点 A 后，站点 A 通过 Set-Cookie：Cookie 头部将 Cookie 返回给浏览器
+- 浏览器会保存 Cookie，留待下次访问
+- 站点 B 的脚本访问站点 A 时，浏览器会自动将 Cookie: cookie 添加到请求的头部访问站点 A ，提升用户体验
+- 站点 A 的鉴权策略：取出 Cookie 值与数据库或者缓存中的 token 验证，通过后将数据赋予请求继续处理
+
+如果没有同源策略，站点 B 的脚本就可以随意修改站点 A 的 DOM 结构：
+
+![](./img/http_req4.png)
+
+## 浏览器的同源策略  
+
+限制了从同一个源加载的文档或脚本如何与来自另一个源的资源进行交互，何谓同源？协议、主机、端口必须完全相同。
+
+例如：http://store.company.com/dir/page.html 检测以下是否同源：
+
+![](./img/same_source.png)
+
+## 安全性与可用性需要一个平衡点  
+
+可用性：HTML 的创作者决定跨域请求是否对本站点安全
+- <script><img><iframe><link><video><audio>带有 src 属性可以跨域访问
+
+- 允许跨域写操作：例如表单提交或者重定向请求
+
+  - CSRF安全性问题
+
+安全性：浏览器需要防止站点 A 的脚本向站点 B 发起危险动作
+
+- Cookie、LocalStorage 和 IndexDB 无法读取
+
+- DOM 无法获得（防止跨域脚本篡改 DOM 结构）
+
+- AJAX 请求不能发送
+
+## 跨站请求伪造攻击  
+
+Cross-Site Request Forgery(CSRF)
+
+![](./img/csrf.png)
+
+CSRF 的一种防攻击方式：
+
+![](./img/csrf_def.png)
 
 
 
